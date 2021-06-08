@@ -19,6 +19,7 @@ package naming_client
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -97,8 +98,10 @@ func (hr *HostReactor) ProcessServiceJson(result string) {
 			logger.Info("service key:%s was updated to:%s", cacheKey, util.ToJsonString(service))
 		}
 		cache.WriteServicesToFile(*service, hr.cacheDir)
+
 		hr.subCallback.ServiceChanged(service)
 	}
+
 }
 
 func (hr *HostReactor) GetServiceInfo(serviceName string, clusters string) (model.Service, error) {
@@ -160,9 +163,10 @@ func (hr *HostReactor) asyncUpdateService() {
 			if !ok {
 				lastRefTime = uint64(0)
 			}
-			if uint64(util.CurrentMillis())-lastRefTime.(uint64) > service.CacheMillis {
+			if uint64(util.CurrentMillis())-lastRefTime.(uint64) > 60*1000 {
 				sema.Acquire()
 				go func() {
+					fmt.Println("asyncUpdateService " + service.Name)
 					hr.updateServiceNow(service.Name, service.Clusters)
 					sema.Release()
 				}()
@@ -170,4 +174,45 @@ func (hr *HostReactor) asyncUpdateService() {
 		}
 		time.Sleep(1 * time.Second)
 	}
+}
+
+func (hr *HostReactor) GetAllNamespaces() []model.Namespace {
+	data := make([]model.Namespace, 0)
+	result, err := hr.serviceProxy.GetAllNamespaces()
+	if err != nil {
+		logger.Errorf("GetAllNamespaces return error! err:%+v", err)
+		return data
+	}
+
+	tempData := struct {
+		Code    int32             `json:"code"`
+		Message string            `json:"message"`
+		Data    []model.Namespace `json:"data"`
+	}{}
+	err = json.Unmarshal([]byte(result), &tempData)
+	if err != nil {
+		logger.Errorf("GetAllNamespaces result json.Unmarshal error!")
+		return data
+	}
+	if tempData.Code != 200 {
+		logger.Errorf("GetAllNamespaces failed!code:%v message:%s", tempData.Code, tempData.Message)
+	}
+	data = tempData.Data
+	return data
+}
+
+func (hr *HostReactor) GetCatalogServices(nameSpace string, pageNo, pageSize uint32) model.CatalogServiceList {
+	data := model.CatalogServiceList{}
+	result, err := hr.serviceProxy.GetCatalogServiceList(nameSpace, pageNo, pageSize)
+	if err != nil {
+		logger.Errorf("GetCatalogServices return error! namespace:%s err:%+v", nameSpace, err)
+		return data
+	}
+
+	err = json.Unmarshal([]byte(result), &data)
+	if err != nil {
+		logger.Errorf("GetCatalogServices result json.Unmarshal error! namespace:%s", nameSpace)
+		return data
+	}
+	return data
 }

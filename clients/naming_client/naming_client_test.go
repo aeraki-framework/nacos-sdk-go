@@ -1066,3 +1066,26 @@ func BenchmarkNamingClient_ChooserPick(b *testing.B) {
 		chooser.pick()
 	}
 }
+
+func TestNamingClient_GetAllNamespaces(t *testing.T) {
+	nc := nacos_client.NacosClient{}
+	nc.SetServerConfig([]constant.ServerConfig{serverConfigTest})
+	nc.SetClientConfig(clientConfigTest)
+	nc.SetHttpAgent(&http_agent.HttpAgent{})
+	client, _ := NewNamingClient(&nc)
+	reslut, err := client.GetAllNamespaces()
+
+	assert.NotNil(t, reslut)
+	assert.Nil(t, err)
+}
+
+func TestNamingClient_GetCatalogServices(t *testing.T) {
+	nc := nacos_client.NacosClient{}
+	nc.SetServerConfig([]constant.ServerConfig{serverConfigTest})
+	nc.SetClientConfig(clientConfigTest)
+	nc.SetHttpAgent(&http_agent.HttpAgent{})
+	client, _ := NewNamingClient(&nc)
+	reslut, err := client.GetCatalogServices("")
+	assert.NotNil(t, reslut.ServiceList)
+	assert.Nil(t, err)
+}
